@@ -1,36 +1,72 @@
 <?php
 $translate = $this->plugin('translate');
 $escape = $this->plugin('escapeHtml');
+$searchAction = $this->url('site/resource', ['controller' => 'item', 'action' => 'browse'], true);
 
 // Get the properties from the block config
 $propertyOne = $this->propertyOne ?? '';
 $propertyTwo = $this->propertyTwo ?? '';
 $joinType = $this->joinType ?? 'and';
+
+// Get the property labels
+$propertyOneData = !empty($propertyOne) ? $this->api()->searchOne('properties', ['term' => $propertyOne])->getContent() : null;
+$propertyTwoData = !empty($propertyTwo) ? $this->api()->searchOne('properties', ['term' => $propertyTwo])->getContent() : null;
+
+$propertyOneLabel = $propertyOneData ? $propertyOneData->label() : $propertyOne;
+$propertyTwoLabel = $propertyTwoData ? $propertyTwoData->label() : $propertyTwo;
+
+// Get values for first property (limited sample)
+$propertyOneValues = [];
+if (!empty($propertyOne)) {
+    // Query for items with this property
+    $propertyOneItems = $this->api()->search('items', [
+        'property' => [
+            [
+                'property' => $propertyOne,
+                'type' => 'ex'
+            ]
+        ],
+        'limit' => 20 // Start with a small limit for testing
+    ])->getContent();
+    
+    // Extract unique values
+    foreach ($propertyOneItems as $item) {
+        $values = $item->value($propertyOne, ['all' => true]);
+        foreach ($values as $value) {
+            $textValue = trim($value->__toString());
+            if (!empty($textValue) && !in_array($textValue, $propertyOneValues)) {
+                $propertyOneValues[] = $textValue;
+            }
+        }
+    }
+    sort($propertyOneValues);
+}
 ?>
 
 <div class="dual-property-search">
-    <h4>Search by <?php echo $escape($propertyOne); ?> and <?php echo $escape($propertyTwo); ?></h4>
-    <p>Join type: <?php echo $escape($joinType); ?></p>
+    <h4><?php echo $translate('Search by property values'); ?></h4>
     
-    <form action="<?php echo $this->url('site/resource', ['controller' => 'item', 'action' => 'browse'], true); ?>" method="GET">
+    <form action="<?php echo $escape($searchAction); ?>" method="GET">
         <div class="form-group">
-            <label for="property-one-select"><?php echo $escape($propertyOne); ?></label>
+            <label for="property-one-select"><?php echo $escape($propertyOneLabel); ?></label>
             <select name="property_one_value" id="property-one-select">
                 <option value=""><?php echo $translate('Select a value...'); ?></option>
-                <option value="test1">Test Value 1</option>
-                <option value="test2">Test Value 2</option>
+                <?php foreach ($propertyOneValues as $value): ?>
+                <option value="<?php echo $escape($value); ?>">
+                    <?php echo $escape($value); ?>
+                </option>
+                <?php endforeach; ?>
             </select>
         </div>
 
         <div class="form-group">
-            <label for="property-two-select"><?php echo $escape($propertyTwo); ?></label>
+            <label for="property-two-select"><?php echo $escape($propertyTwoLabel); ?></label>
             <select name="property_two_value" id="property-two-select">
                 <option value=""><?php echo $translate('Select a value...'); ?></option>
-                <option value="testA">Test Value A</option>
-                <option value="testB">Test Value B</option>
+                <!-- Will be populated later -->
             </select>
         </div>
 
-        <button type="submit">Search</button>
+        <button type="submit"><?php echo $translate('Search'); ?></button>
     </form>
 </div>
