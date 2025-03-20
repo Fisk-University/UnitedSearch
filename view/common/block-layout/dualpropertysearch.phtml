@@ -70,3 +70,31 @@ if (!empty($propertyOne)) {
         <button type="submit"><?php echo $translate('Search'); ?></button>
     </form>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const propertyOneSelect = document.getElementById('property-one-select');
+    const propertyTwoSelect = document.getElementById('property-two-select');
+    
+    // Start with second dropdown disabled
+    propertyTwoSelect.disabled = !propertyOneSelect.value;
+    
+    // Enable/disable second dropdown based on first selection
+    propertyOneSelect.addEventListener('change', function() {
+        propertyTwoSelect.disabled = !propertyOneSelect.value;
+        
+        // Reset the second dropdown
+        propertyTwoSelect.innerHTML = '<option value=""><?php echo $translate('Select a value...'); ?></option>';
+        
+        if (propertyOneSelect.value) {
+            // For testing, just add a placeholder option
+            const option = document.createElement('option');
+            option.value = 'test';
+            option.textContent = 'Test value for ' + propertyOneSelect.value;
+            propertyTwoSelect.appendChild(option);
+            
+            console.log('Selected property one value:', propertyOneSelect.value);
+            console.log('Will load related values for property two...');
+        }
+    });
+});
+</script>
