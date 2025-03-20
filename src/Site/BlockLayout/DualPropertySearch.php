@@ -54,6 +54,7 @@ class DualPropertySearch extends AbstractBlockLayout implements TemplateableBloc
             $propertySelectOne->setAttributes([
                 'value' => $data['propertyOne'] ?? null,
                 'required' => true,
+                'class' => 'chosen-select', // Add chosen-select class for admin side
             ]);
             $layoutForm->add($propertySelectOne);
         } catch (\Exception $e) {
@@ -71,6 +72,7 @@ class DualPropertySearch extends AbstractBlockLayout implements TemplateableBloc
             $propertySelectTwo->setAttributes([
                 'value' => $data['propertyTwo'] ?? null,
                 'required' => true,
+                'class' => 'chosen-select', // Add chosen-select class for admin side
             ]);
             $layoutForm->add($propertySelectTwo);
         } catch (\Exception $e) {
@@ -90,6 +92,7 @@ class DualPropertySearch extends AbstractBlockLayout implements TemplateableBloc
             ],
             'attributes' => [
                 'value' => $data['joinType'],
+                'class' => 'chosen-select', // Add chosen-select class for admin side
             ]
         ]);
         
@@ -100,6 +103,9 @@ class DualPropertySearch extends AbstractBlockLayout implements TemplateableBloc
             $html .= '<div class="errors">' . implode('<br>', $errors) . '</div>';
         }
         $html .= $view->formCollection($layoutForm);
+        
+        // No need to add JavaScript here as Omeka admin already initializes chosen-select
+        
         return $html;
     }
 

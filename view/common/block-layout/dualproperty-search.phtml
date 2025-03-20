@@ -8,23 +8,16 @@ $propertyOne = $this->propertyOne ?? '';
 $propertyTwo = $this->propertyTwo ?? '';
 $joinType = $this->joinType ?? 'and';
 
-// Get the property labels and IDs
+// Get the property labels
 $propertyOneData = !empty($propertyOne) ? $this->api()->searchOne('properties', ['term' => $propertyOne])->getContent() : null;
 $propertyTwoData = !empty($propertyTwo) ? $this->api()->searchOne('properties', ['term' => $propertyTwo])->getContent() : null;
 
 $propertyOneLabel = $propertyOneData ? $propertyOneData->label() : $propertyOne;
 $propertyTwoLabel = $propertyTwoData ? $propertyTwoData->label() : $propertyTwo;
 
-$propertyOneId = $propertyOneData ? $propertyOneData->id() : null;
-$propertyTwoId = $propertyTwoData ? $propertyTwoData->id() : null;
-
-// Get all unique values for the first property (states)
+// Get values for first property
 $propertyOneValues = [];
-$relationshipMap = [];
-
-// Use API to get unique values
 if (!empty($propertyOne)) {
-    // Get unique values for property one using API
     $propertyOneItems = $this->api()->search('items', [
         'property' => [
             [
@@ -37,7 +30,6 @@ if (!empty($propertyOne)) {
         'sort_order' => 'asc'
     ])->getContent();
     
-    // Extract unique values
     foreach ($propertyOneItems as $item) {
         $values = $item->value($propertyOne, ['all' => true]);
         foreach ($values as $value) {
@@ -48,15 +40,15 @@ if (!empty($propertyOne)) {
         }
     }
     sort($propertyOneValues);
-    
-    // Initialize relationship map
+}
+
+// Pre-load relationships between property values
+$relationshipMap = [];
+if (!empty($propertyOne) && !empty($propertyTwo) && $joinType === 'and') {
     foreach ($propertyOneValues as $value) {
         $relationshipMap[$value] = [];
     }
-}
-
-// Build relationship map (state -> counties)
-if (!empty($propertyOne) && !empty($propertyTwo) && $joinType === 'and') {
+    
     // For each state, find related counties
     foreach ($propertyOneValues as $state) {
         // Get items with this state value
@@ -126,7 +118,7 @@ $propertyTwoValuesJson = json_encode($propertyTwoValues);
         <div class="form-group">
             <label for="property-one-select"><?php echo $escape($propertyOneLabel); ?></label>
             <select name="property_one_value" id="property-one-select">
-                <option value=""><?php echo $translate('Select a value...'); ?></option>
+                <option value=""><?php echo $translate('---'); ?></option>
                 <?php foreach ($propertyOneValues as $value): ?>
                 <option value="<?php echo $escape($value); ?>">
                     <?php echo $escape($value); ?>
@@ -138,7 +130,7 @@ $propertyTwoValuesJson = json_encode($propertyTwoValues);
         <div class="form-group">
             <label for="property-two-select"><?php echo $escape($propertyTwoLabel); ?></label>
             <select name="property_two_value" id="property-two-select" disabled>
-                <option value=""><?php echo $translate('Select a value...'); ?></option>
+                <option value=""><?php echo $translate('---'); ?></option>
                 <!-- Will be populated via JavaScript -->
             </select>
         </div>
@@ -159,7 +151,7 @@ $propertyTwoValuesJson = json_encode($propertyTwoValues);
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+jQuery(document).ready(function($) {
     const propertyOneSelect = document.getElementById('property-one-select');
     const propertyTwoSelect = document.getElementById('property-two-select');
     const propertyOneHidden = document.getElementById('property-one-hidden');
@@ -171,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const allPropertyTwoValues = <?php echo $propertyTwoValuesJson; ?>;
     
     // Update hidden fields on form submission
-    searchForm.addEventListener('submit', function(e) {
+    $(searchForm).on('submit', function(e) {
         propertyOneHidden.value = propertyOneSelect.value;
         propertyTwoHidden.value = propertyTwoSelect.value;
         
@@ -186,42 +178,36 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Enable/disable second dropdown based on first selection
-    propertyOneSelect.addEventListener('change', function() {
-        // Reset the second dropdown
-        propertyTwoSelect.innerHTML = '<option value=""><?php echo $translate('Select a value...'); ?></option>';
+    $(propertyOneSelect).on('change', function() {
+        // Clear the second dropdown
+        $(propertyTwoSelect).empty().append('<option value=""><?php echo $translate('---'); ?></option>');
         
         if (propertyOneSelect.value) {
-            propertyTwoSelect.disabled = false;
+            // Enable the second dropdown
+            $(propertyTwoSelect).prop('disabled', false);
             
             if (joinType === 'and') {
                 // Get related values from the pre-generated map
                 const relatedValues = relationshipMap[propertyOneSelect.value] || [];
                 
-                relatedValues.forEach(value => {
-                    const option = document.createElement('option');
-                    option.value = value;
-                    option.textContent = value;
-                    propertyTwoSelect.appendChild(option);
-                });
-                
-                if (relatedValues.length === 0) {
-                    const option = document.createElement('option');
-                    option.value = '';
-                    option.textContent = '<?php echo $translate('No related values found'); ?>';
-                    option.disabled = true;
-                    propertyTwoSelect.appendChild(option);
+                if (relatedValues.length > 0) {
+                    // Add options for related values
+                    relatedValues.forEach(function(value) {
+                        $(propertyTwoSelect).append(`<option value="${value}">${value}</option>`);
+                    });
+                } else {
+                    // No related values found
+                    $(propertyTwoSelect).append(`<option value="" disabled><?php echo $translate('No related values found'); ?></option>`);
                 }
             } else {
                 // For OR, use all possible values
-                allPropertyTwoValues.forEach(value => {
-                    const option = document.createElement('option');
-                    option.value = value;
-                    option.textContent = value;
-                    propertyTwoSelect.appendChild(option);
+                allPropertyTwoValues.forEach(function(value) {
+                    $(propertyTwoSelect).append(`<option value="${value}">${value}</option>`);
                 });
             }
         } else {
-            propertyTwoSelect.disabled = true;
+            // Disable the second dropdown if nothing is selected
+            $(propertyTwoSelect).prop('disabled', true);
         }
     });
 });

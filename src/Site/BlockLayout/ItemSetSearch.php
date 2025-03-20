@@ -64,6 +64,7 @@ class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayo
                 'value' => $data['selectedItemSet'] ?? null,
                 'required' => true,
                 'data-column-data-key' => 'item_set_id',
+                'class' => 'chosen-select', // Add chosen-select class for admin side
             ]);
             $layoutForm->add($itemSetSelect);
         } catch (\Exception $e) {
@@ -82,6 +83,7 @@ class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayo
                 'value' => $data['searchField'] ?? null,
                 'required' => true,
                 'data-column-data-key' => 'searchField',
+                'class' => 'chosen-select', // Add chosen-select class for admin side
             ]);
             $layoutForm->add($propertySelect);
         } catch (\Exception $e) {
@@ -103,7 +105,6 @@ class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayo
             'name' => 'o:block[__blockIndex__][o:data][searchTypeSelect]',
             'type' => Element\Text::class,
             'options' => [
-                'label' => 'Search Type', // @translate
             ],
             'attributes' => [
                 'value' => $data['searchTypeSelect'],
@@ -118,6 +119,7 @@ class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayo
             $html .= '<div class="errors">' . implode('<br>', $errors) . '</div>';
         }
         $html .= $view->formCollection($layoutForm);
+        
         return $html;
     }
 
