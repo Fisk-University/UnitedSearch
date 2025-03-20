@@ -1,0 +1,47 @@
+<?php
+$translate = $this->plugin('translate');
+$escape = $this->plugin('escapeHtml');
+
+// Get search parameters
+$properties = isset($_GET['property']) ? $_GET['property'] : [];
+$properties = array_filter($properties, function ($value) {
+    return isset($value['text']) ? '' !== trim($value['text']) : true;
+});
+if (!$properties) {
+    $properties[] = [];
+}
+
+// Prepare search values
+$searchAction = $this->url('site/resource', ['controller' => 'item', 'action' => 'browse'], true);
+$searchValue = isset($properties[0]['text']) ? $properties[0]['text'] : '';
+$itemSetID = $this->params()->fromQuery('item_set_id', $this->selectedItemSet);
+
+// Get property field to search
+$propertySearchField = isset($this->searchField) ? $this->searchField : 'dcterms:title';
+
+// Use the configured item set if none is specified in the request
+$selectedItemSet = !empty($itemSetID) ? $itemSetID : $this->selectedItemSet;
+?>
+
+<div class="search-form" role="search">
+    <form action="<?php echo $escape($searchAction); ?>" id="search-form" aria-label="<?php echo $translate('Search items'); // @translate ?>">
+        <input type="hidden" name="item_set_id" id="itemsetid" value="<?php echo $escape($selectedItemSet); ?>" />
+        <input type="hidden" name="property[0][joiner]" value="<?php echo $escape($this->conditionalSelect); ?>" />
+        <input type="hidden" name="property[0][property]" value="<?php echo $escape($propertySearchField); ?>" />
+        <input type="hidden" name="property[0][type]" value="<?php echo $escape($this->searchTypeSelect); ?>" />
+        
+        <div class="input-group">
+            <label for="search-input" class="visually-hidden"><?php echo $translate($this->fieldPlaceholder); ?></label>
+            <input 
+                type="text" 
+                name="property[0][text]" 
+                id="search-input"
+                value="<?php echo $escape($searchValue); ?>"
+                placeholder="<?php echo $translate($this->fieldPlaceholder); ?>"
+                aria-label="<?php echo $translate($this->fieldPlaceholder); ?>">
+            <button type="submit" aria-label="<?php echo $translate('Search'); // @translate ?>">
+                <?php echo $translate('Search'); // @translate ?>
+            </button>
+        </div>
+    </form>
+</div>
