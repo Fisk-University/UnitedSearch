@@ -5,6 +5,7 @@ return [
     'block_layouts' => [
         'factories' => [
             'ItemSetSearch' => Site\BlockLayout\ItemSetSearchFactory::class,
+            'DualPropertySearch' => Site\BlockLayout\DualPropertySearchFactory::class,
         ],
     ],
     'view_manager' => [
