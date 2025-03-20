@@ -104,7 +104,7 @@ class DualPropertySearch extends AbstractBlockLayout implements TemplateableBloc
         return $html;
     }
 
-    public function render(PhpRenderer $view, SitePageBlockRepresentation $block, $templateViewScript = 'common/block-layout/dualpropertysearch')
+    public function render(PhpRenderer $view, SitePageBlockRepresentation $block, $templateViewScript = 'common/block-layout/dualproperty-search')
     {
         // For now, just display the property values selected
         $data = $block->data();

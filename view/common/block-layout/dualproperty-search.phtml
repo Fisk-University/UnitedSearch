@@ -74,27 +74,75 @@ if (!empty($propertyOne)) {
 document.addEventListener('DOMContentLoaded', function() {
     const propertyOneSelect = document.getElementById('property-one-select');
     const propertyTwoSelect = document.getElementById('property-two-select');
+    const searchBlock = document.querySelector('.dual-property-search');
+    
+    const propertyOne = '<?php echo $escape($propertyOne); ?>';
+    const propertyTwo = '<?php echo $escape($propertyTwo); ?>';
+    const joinType = '<?php echo $escape($joinType); ?>';
     
     // Start with second dropdown disabled
     propertyTwoSelect.disabled = !propertyOneSelect.value;
     
     // Enable/disable second dropdown based on first selection
     propertyOneSelect.addEventListener('change', function() {
-        propertyTwoSelect.disabled = !propertyOneSelect.value;
-        
         // Reset the second dropdown
         propertyTwoSelect.innerHTML = '<option value=""><?php echo $translate('Select a value...'); ?></option>';
         
         if (propertyOneSelect.value) {
-            // For testing, just add a placeholder option
-            const option = document.createElement('option');
-            option.value = 'test';
-            option.textContent = 'Test value for ' + propertyOneSelect.value;
-            propertyTwoSelect.appendChild(option);
+            propertyTwoSelect.disabled = false;
             
-            console.log('Selected property one value:', propertyOneSelect.value);
-            console.log('Will load related values for property two...');
+            // Call the API to get related values
+            fetchRelatedValues(propertyOne, propertyOneSelect.value, propertyTwo);
+        } else {
+            propertyTwoSelect.disabled = true;
         }
     });
+    
+    // Function to fetch related values using AJAX
+    function fetchRelatedValues(propertyOne, valueOne, propertyTwo) {
+        const url = '<?php echo $this->url('site/property-values', [], ['force_canonical' => true]); ?>';
+        
+        const queryParams = new URLSearchParams({
+            'property_id': propertyTwo,
+            'related_property': propertyOne,
+            'related_value': valueOne
+        });
+        
+        // Show loading indicator
+        propertyTwoSelect.innerHTML = '<option value=""><?php echo $translate('Loading values...'); ?></option>';
+        
+        fetch(`${url}?${queryParams.toString()}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response error');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Reset and repopulate dropdown
+                propertyTwoSelect.innerHTML = '<option value=""><?php echo $translate('Select a value...'); ?></option>';
+                
+                if (data && Array.isArray(data) && data.length > 0) {
+                    data.forEach(value => {
+                        const option = document.createElement('option');
+                        option.value = value;
+                        option.textContent = value;
+                        propertyTwoSelect.appendChild(option);
+                    });
+                    console.log('Loaded values for second property:', data);
+                } else {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = '<?php echo $translate('No related values found'); ?>';
+                    option.disabled = true;
+                    propertyTwoSelect.appendChild(option);
+                    console.log('No values found');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching related values:', error);
+                propertyTwoSelect.innerHTML = '<option value=""><?php echo $translate('Error loading values'); ?></option>';
+            });
+    }
 });
 </script>
