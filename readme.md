@@ -64,7 +64,8 @@ The module works efficiently with large datasets by using optimized database que
 
 ## License
 
-This module is published under the [Side Public License (SSPL-1.0)](https://www.mongodb.com/legal/licensing/server-side-public-license).
+This module is published under the [Server Side Public License (SSPL-1.0)](https://www.mongodb.com/legal/licensing/server-side-public-license).
+
 ---
 
 Built with ❤️ by LaTaevia Berry for Fisk University and HBCUs nationwide
