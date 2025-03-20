@@ -10,7 +10,6 @@ use Omeka\Form\Element as OmekaElement;
 use Laminas\Form\Element;
 use Laminas\Form\Form;
 use Laminas\View\Renderer\PhpRenderer;
-use Omeka\Api\Manager as ApiManager;
 use Laminas\Form\FormElementManager;
 
 class DualPropertySearch extends AbstractBlockLayout implements TemplateableBlockLayoutInterface
@@ -106,14 +105,7 @@ class DualPropertySearch extends AbstractBlockLayout implements TemplateableBloc
 
     public function render(PhpRenderer $view, SitePageBlockRepresentation $block, $templateViewScript = 'common/block-layout/dualproperty-search')
     {
-        // For now, just display the property values selected
-        $data = $block->data();
-        $html = '<div class="dual-property-search-debug">';
-        $html .= 'Property One: ' . $view->escapeHtml($data['propertyOne'] ?? '') . '<br>';
-        $html .= 'Property Two: ' . $view->escapeHtml($data['propertyTwo'] ?? '') . '<br>';
-        $html .= 'Join Type: ' . $view->escapeHtml($data['joinType'] ?? '') . '<br>';
-        $html .= '</div>';
-        
-        return $html;
+        $blockData = ($block) ? $block->data() : [];
+        return $view->partial($templateViewScript, $blockData);
     }
 }
