@@ -8,6 +8,8 @@ class DualPropertySearchFactory implements FactoryInterface
 {
     public function __invoke(ContainerInterface $services, $requestedName, array $options = null)
     {
-        return new DualPropertySearch();
+        return new DualPropertySearch(
+            $services->get('FormElementManager')
+        );
     }
 }
