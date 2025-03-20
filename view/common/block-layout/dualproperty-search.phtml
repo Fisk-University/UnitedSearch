@@ -1,0 +1,36 @@
+<?php
+$translate = $this->plugin('translate');
+$escape = $this->plugin('escapeHtml');
+
+// Get the properties from the block config
+$propertyOne = $this->propertyOne ?? '';
+$propertyTwo = $this->propertyTwo ?? '';
+$joinType = $this->joinType ?? 'and';
+?>
+
+<div class="dual-property-search">
+    <h4>Search by <?php echo $escape($propertyOne); ?> and <?php echo $escape($propertyTwo); ?></h4>
+    <p>Join type: <?php echo $escape($joinType); ?></p>
+    
+    <form action="<?php echo $this->url('site/resource', ['controller' => 'item', 'action' => 'browse'], true); ?>" method="GET">
+        <div class="form-group">
+            <label for="property-one-select"><?php echo $escape($propertyOne); ?></label>
+            <select name="property_one_value" id="property-one-select">
+                <option value=""><?php echo $translate('Select a value...'); ?></option>
+                <option value="test1">Test Value 1</option>
+                <option value="test2">Test Value 2</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="property-two-select"><?php echo $escape($propertyTwo); ?></label>
+            <select name="property_two_value" id="property-two-select">
+                <option value=""><?php echo $translate('Select a value...'); ?></option>
+                <option value="testA">Test Value A</option>
+                <option value="testB">Test Value B</option>
+            </select>
+        </div>
+
+        <button type="submit">Search</button>
+    </form>
+</div>
