@@ -1,7 +1,20 @@
 <?php
 $translate = $this->plugin('translate');
 $escape = $this->plugin('escapeHtml');
-$searchAction = $this->url('site/resource', ['controller' => 'item', 'action' => 'browse'], true);
+$api = $this->api();
+
+$site = $this->site ?? null;
+
+if ($site):
+    $searchAction = $this->url('site/resource', [
+        'site-slug' => $site->slug(),
+        'controller' => 'item',
+        'action' => 'browse',
+    ], true);
+else:
+    $searchAction = '';
+    error_log("⚠️ dualproperty-search.phtml: No site context — search form will not submit correctly.");
+endif;
 
 // Get the properties from the block config
 $propertyOne = $this->propertyOne ?? '';
@@ -25,7 +38,6 @@ if (!empty($propertyOne)) {
                 'type' => 'ex'
             ]
         ],
-        'limit' => 100,
         'sort_by' => 'title',
         'sort_order' => 'asc'
     ])->getContent();
@@ -49,7 +61,7 @@ if (!empty($propertyOne) && !empty($propertyTwo) && $joinType === 'and') {
         $relationshipMap[$value] = [];
     }
     
-    // For each state, find related counties
+    // For each state(prop1), find related counties(prop2)
     foreach ($propertyOneValues as $state) {
         // Get items with this state value
         $items = $this->api()->search('items', [
@@ -60,7 +72,6 @@ if (!empty($propertyOne) && !empty($propertyTwo) && $joinType === 'and') {
                     'text' => $state
                 ]
             ],
-            'limit' => 200
         ])->getContent();
         
         // Extract counties from these items
@@ -89,7 +100,6 @@ if (!empty($propertyTwo) && $joinType === 'or') {
                 'type' => 'ex'
             ]
         ],
-        'limit' => 100,
         'sort_by' => 'title',
         'sort_order' => 'asc'
     ])->getContent();
@@ -112,10 +122,11 @@ $propertyTwoValuesJson = json_encode($propertyTwoValues);
 ?>
 
 <div class="dual-property-search">
-    <h4><?php echo $translate('Search by property values'); ?></h4>
+    <h4><?php echo $translate('Search by property values:block'); ?></h4>
     
     <form action="<?php echo $escape($searchAction); ?>" method="GET" id="dual-property-search-form">
         <div class="form-group">
+            
             <label for="property-one-select"><?php echo $escape($propertyOneLabel); ?></label>
             <select name="property_one_value" id="property-one-select">
                 <option value=""><?php echo $translate('---'); ?></option>
@@ -166,16 +177,22 @@ jQuery(document).ready(function($) {
     $(searchForm).on('submit', function(e) {
         propertyOneHidden.value = propertyOneSelect.value;
         propertyTwoHidden.value = propertyTwoSelect.value;
-        
-        // Prevent submission if no values are selected
+
         if (!propertyOneSelect.value) {
             e.preventDefault();
             alert('<?php echo $translate('Please select a value for the first property.'); ?>');
-        } else if (joinType === 'and' && !propertyTwoSelect.value) {
-            e.preventDefault();
-            alert('<?php echo $translate('Please select a value for both properties.'); ?>');
+            return;
+        }
+
+        if (!propertyTwoSelect.value) {
+            // If property two is not selected, clear its hidden fields to exclude it from query
+            $('input[name="property[1][property]"]').remove();
+            $('input[name="property[1][type]"]').remove();
+            $('input[name="property[1][text]"]').remove();
+            $('input[name="property[1][joiner]"]').remove();
         }
     });
+
     
     // Enable/disable second dropdown based on first selection
     $(propertyOneSelect).on('change', function() {

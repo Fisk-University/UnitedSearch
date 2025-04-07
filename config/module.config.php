@@ -13,4 +13,9 @@ return [
             dirname(__DIR__) . '/view',
         ],
     ],
+    'view_helpers' => [
+        'factories' => [
+            'dualPropertySearchForm' => Service\ViewHelper\DualPropertySearchFormFactory::class,
+        ],
+    ],
 ];

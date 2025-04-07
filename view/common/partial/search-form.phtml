@@ -1,0 +1,39 @@
+<?php
+$translate = $this->plugin('translate');
+$escape = $this->plugin('escapeHtml');
+?>
+<form action="<?php echo $escape($searchAction); ?>" method="GET" id="dual-property-search-form">
+    <h1>view/common/partial/search-form.phtml</h1>
+    <div class="form-group">
+        <label for="property-one-select"><?php echo $escape($propertyOneLabel); ?></label>
+        <select name="property_one_value" id="property-one-select">
+            <option value=""><?php echo $translate('---'); ?></option>
+            <?php foreach ($propertyOneValues as $value): ?>
+            <option value="<?php echo $escape($value); ?>">
+                <?php echo $escape($value); ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="property-two-select"><?php echo $escape($propertyTwoLabel); ?></label>
+        <select name="property_two_value" id="property-two-select" disabled>
+            <option value=""><?php echo $translate('---'); ?></option>
+            <!-- Will be populated via JavaScript -->
+        </select>
+    </div>
+
+    <!-- Hidden fields to include in the search -->
+    <input type="hidden" name="property[0][joiner]" value="and">
+    <input type="hidden" name="property[0][property]" value="<?php echo $escape($propertyOne); ?>">
+    <input type="hidden" name="property[0][type]" value="eq">
+    <input type="hidden" name="property[0][text]" id="property-one-hidden">
+    
+    <input type="hidden" name="property[1][joiner]" value="<?php echo $escape($joinType); ?>">
+    <input type="hidden" name="property[1][property]" value="<?php echo $escape($propertyTwo); ?>">
+    <input type="hidden" name="property[1][type]" value="eq">
+    <input type="hidden" name="property[1][text]" id="property-two-hidden">
+
+    <button type="submit"><?php echo $translate('Search'); ?></button>
+</form>
