@@ -3,7 +3,6 @@ namespace UnitedSearch\Service;
 
 use Doctrine\ORM\EntityManager;
 use Omeka\Api\Manager as ApiManager;
-use Laminas\Cache\Storage\StorageInterface;
 
 class PropertyValueService
 {
@@ -14,7 +13,7 @@ class PropertyValueService
     public function __construct(
         EntityManager $entityManager, 
         ApiManager $apiManager, 
-        StorageInterface $cache
+        CacheInterface $cache
     ) {
         $this->entityManager = $entityManager;
         $this->apiManager = $apiManager;

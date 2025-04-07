@@ -4,19 +4,44 @@ namespace UnitedSearch\Service\Factory;
 use Interop\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
 use UnitedSearch\Service\PropertyValueService;
-use Laminas\Cache\Storage\Adapter\Memory as MemoryCache;
+use UnitedSearch\Service\CacheInterface;
+
+class SimpleCache implements CacheInterface
+{
+    private $storage = [];
+
+    public function getItem($key)
+    {
+        return $this->storage[$key] ?? null;
+    }
+
+    public function setItem($key, $value)
+    {
+        $this->storage[$key] = $value;
+        return true;
+    }
+
+    public function hasItem($key)
+    {
+        return isset($this->storage[$key]);
+    }
+
+    public function removeItem($key)
+    {
+        unset($this->storage[$key]);
+        return true;
+    }
+}
 
 class PropertyValueServiceFactory implements FactoryInterface
 {
-    public function __invoke(ContainerInterface $container, $requestedName, array $options = null)
+    public function __invoke(ContainerInterface $services, $requestedName, array $options = null)
     {
-        $entityManager = $container->get('Omeka\EntityManager');
-        $apiManager = $container->get('Omeka\ApiManager');
+        $entityManager = $services->get('Omeka\EntityManager');
+        $apiManager = $services->get('Omeka\ApiManager');
         
-        // Use Memory cache by default, can be replaced with Redis/Filesystem cache
-        $cache = new MemoryCache([
-            'memory_limit' => 32 * 1024 * 1024,  // 32MB cache limit
-        ]);
+        // Create a simple cache that implements CacheInterface
+        $cache = new SimpleCache();
 
         return new PropertyValueService(
             $entityManager,
