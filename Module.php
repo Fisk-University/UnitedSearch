@@ -15,11 +15,20 @@ class Module extends AbstractModule implements BootstrapListenerInterface
         return include __DIR__ . '/config/module.config.php';
     }
 
-    public function onBootstrap(EventInterface $event)
+    public function onBootstrap(\Laminas\EventManager\EventInterface $event)
     {
-        $eventManager = $event->getApplication()->getEventManager();
-        $sharedManager = $eventManager->getSharedManager();
-        $this->attachListeners($sharedManager);
+        $application = $event->getApplication();
+        $serviceManager = $application->getServiceManager();
+        $eventManager = $application->getEventManager();
+        
+        // Get the logger service
+        $logger = $serviceManager->get('Omeka\Logger');
+        
+        // Create and attach the search listener
+        $searchListener = new \UnitedSearch\Mvc\Controller\Listener\SearchListener($logger);
+        $searchListener->attach($eventManager);
+        
+        $logger->info('UnitedSearch: Module bootstrapped and search listener attached');
     }
 
     public function attachListeners(SharedEventManagerInterface $sharedEventManager): void

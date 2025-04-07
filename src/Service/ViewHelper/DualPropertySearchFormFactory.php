@@ -1,17 +1,36 @@
 <?php
 namespace UnitedSearch\Service\ViewHelper;
 
-use Interop\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
+use Interop\Container\ContainerInterface;
 use UnitedSearch\View\Helper\DualPropertySearchForm;
 
 class DualPropertySearchFormFactory implements FactoryInterface
 {
-    public function __invoke(ContainerInterface $container, $requestedName, array $options = null)
+    /**
+     * Create the DualPropertySearchForm view helper
+     *
+     * @param ContainerInterface $services
+     * @param string $requestedName
+     * @param array|null $options
+     * @return DualPropertySearchForm
+     */
+    public function __invoke(ContainerInterface $services, $requestedName, array $options = null)
     {
-        $viewHelperManager = $container->get('ViewHelperManager');
-        $apiHelper = $viewHelperManager->get('api');
-
-        return new DualPropertySearchForm($apiHelper);
+        // Get the necessary services
+        $formElementManager = $services->get('FormElementManager');
+        $urlHelper = $services->get('ViewHelperManager')->get('url');
+        $logger = $services->get('Omeka\Logger');
+        $apiManager = $services->get('Omeka\ApiManager');
+        
+        // Log when the factory is called
+        $logger->info('UnitedSearch: Creating DualPropertySearchForm view helper');
+        
+        return new DualPropertySearchForm(
+            $formElementManager,
+            $urlHelper,
+            $logger,
+            $apiManager
+        );
     }
 }

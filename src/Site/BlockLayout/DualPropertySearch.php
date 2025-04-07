@@ -11,6 +11,7 @@ use Laminas\Form\Element;
 use Laminas\Form\Form;
 use Laminas\View\Renderer\PhpRenderer;
 use Laminas\Form\FormElementManager;
+use UnitedSearch\Service\PropertyValueService;
 
 class DualPropertySearch extends AbstractBlockLayout implements TemplateableBlockLayoutInterface
 {
@@ -19,9 +20,17 @@ class DualPropertySearch extends AbstractBlockLayout implements TemplateableBloc
      */
     protected $formElements;
 
-    public function __construct(FormElementManager $formElements)
-    {
+    /**
+     * @var PropertyValueService
+     */
+    protected $propertyValueService;
+
+    public function __construct(
+        FormElementManager $formElements, 
+        PropertyValueService $propertyValueService
+    ) {
         $this->formElements = $formElements;
+        $this->propertyValueService = $propertyValueService;
     }
 
     public function getLabel()
@@ -104,14 +113,36 @@ class DualPropertySearch extends AbstractBlockLayout implements TemplateableBloc
         }
         $html .= $view->formCollection($layoutForm);
         
-        // No need to add JavaScript here as Omeka admin already initializes chosen-select
-        
         return $html;
     }
 
     public function render(PhpRenderer $view, SitePageBlockRepresentation $block, $templateViewScript = 'common/block-layout/dualproperty-search')
     {
         $blockData = ($block) ? $block->data() : [];
+        
+        // If both properties are selected, use the new service to get values
+        if (!empty($blockData['propertyOne']) && !empty($blockData['propertyTwo'])) {
+            // Get unique values for first property
+            $blockData['propertyOneValues'] = $this->propertyValueService->getUniquePropertyValues(
+                $blockData['propertyOne'], 
+                ['limit' => 500]
+            );
+
+            // Create relationship map
+            $blockData['relationshipMap'] = $this->propertyValueService->createRelationshipMap(
+                $blockData['propertyOne'], 
+                $blockData['propertyTwo']
+            );
+
+            // Get all possible values for property two if join type is 'or'
+            if ($blockData['joinType'] === 'or') {
+                $blockData['propertyTwoValues'] = $this->propertyValueService->getUniquePropertyValues(
+                    $blockData['propertyTwo'], 
+                    ['limit' => 500]
+                );
+            }
+        }
+
         return $view->partial($templateViewScript, $blockData);
     }
 }

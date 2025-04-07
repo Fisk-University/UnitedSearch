@@ -13,9 +13,14 @@ return [
             dirname(__DIR__) . '/view',
         ],
     ],
+    'service_manager' => [
+        'factories' => [
+            'UnitedSearch\PropertyValueService' => Service\Factory\PropertyValueServiceFactory::class,
+        ],
+    ],
     'view_helpers' => [
         'factories' => [
-            'dualPropertySearchForm' => Service\ViewHelper\DualPropertySearchFormFactory::class,
+            'dualPropertySearchForm' => View\Helper\Factory\DualPropertySearchFormFactory::class,
         ],
     ],
 ];
