@@ -1,0 +1,41 @@
+name: Deploy Omeka via Git Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*-*'  # e.g., v1.0.0-dev, v1.2.3-stage, v3.0.1-prod
+
+jobs:
+  parse-env:
+    runs-on: ubuntu-latest
+    outputs:
+      env_name: ${{ steps.setenv.outputs.env }}
+    steps:
+      - name: Parse environment from tag
+        id: setenv
+        run: |
+          ENV=$(echo '${{ github.ref_name }}' | grep -oE '(dev|test|stage|prod)$' || true)
+          if [ -z "$ENV" ]; then
+            echo "Tag must end in -dev, -test, -stage, or -prod"
+            exit 1
+          fi
+          echo "env=$ENV" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: parse-env
+    runs-on: self-hosted
+    environment: ${{ needs.parse-env.outputs.env_name }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Create deployment artifact
+        run: |
+          zip -r artifact.zip . -x ".git/*" "artifact.zip"
+
+      - name: Run deploy.sh (on VPC runner)
+        run: |
+          unzip -o artifact.zip -d ~/deployed
+          chmod +x ~/deployed/deploy.sh
+          ~/deployed/deploy.sh ${{ needs.parse-env.outputs.env_name }} ${{ github.ref_name }}
