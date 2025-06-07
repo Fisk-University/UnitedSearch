@@ -3,7 +3,7 @@ name: Deploy Omeka via Git Tag
 on:
   push:
     tags:
-      - 'v*.*.*-*'  # e.g., v1.0.0-dev, v1.2.3-stage, v3.0.1-prod
+      - 'v*.*.*-*'  # e.g., v1.1.1-dev
 
 jobs:
   parse-env:
@@ -14,7 +14,7 @@ jobs:
       - name: Parse environment from tag
         id: setenv
         run: |
-          ENV=$(echo '${{ github.ref_name }}' | grep -oE '(dev|test|stage|prod)$' || true)
+          ENV=$(echo '${{ github.ref_name }}' | grep -oE '(dev|test|stage|prod)$')
           if [ -z "$ENV" ]; then
             echo "Tag must end in -dev, -test, -stage, or -prod"
             exit 1
@@ -27,15 +27,35 @@ jobs:
     environment: ${{ needs.parse-env.outputs.env_name }}
 
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Create deployment artifact
+      - name: Package artifact
         run: |
-          zip -r artifact.zip . -x ".git/*" "artifact.zip"
+          mkdir -p modules/UnitedSearch
+          rsync -av --exclude=modules ./ modules/UnitedSearch/
+          zip -r artifact.zip modules/
 
-      - name: Run deploy.sh (on VPC runner)
+      - name: Upload artifact to S3
         run: |
-          unzip -o artifact.zip -d ~/deployed
-          chmod +x ~/deployed/deploy.sh
-          ~/deployed/deploy.sh ${{ needs.parse-env.outputs.env_name }} ${{ github.ref_name }}
+          ENV=${{ needs.parse-env.outputs.env_name }}
+          TAG=${{ github.ref_name }}
+          aws s3 cp artifact.zip s3://${{ secrets.S3_BUCKET_NAME }}/$ENV/artifacts/$TAG/artifact.zip
+
+      - name: Trigger deploy via SSM to target EC2
+        run: |
+          ENV=${{ needs.parse-env.outputs.env_name }}
+          TAG=${{ github.ref_name }}
+          INSTANCE_ID=${{ secrets.INSTANCE_ID }}
+
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --instance-ids "$INSTANCE_ID" \
+            --comment "Remote Omeka Deployment" \
+            --parameters "commands=[
+              \"aws s3 cp s3://${{ secrets.S3_BUCKET_NAME }}/$ENV/artifacts/$TAG/artifact.zip /tmp/artifact.zip\",
+              \"unzip -o /tmp/artifact.zip -d /tmp/deployed\",
+              \"chmod +x /tmp/deployed/modules/UnitedSearch/.github/workflows/deploy.sh\",
+              \"/tmp/deployed/modules/UnitedSearch/.github/workflows/deploy.sh $ENV $TAG\"
+            ]" \
+            --region us-east-1
