@@ -1,25 +1,27 @@
-name: Deploy Omeka via Git Tag
+name: Deploy UnitedSearch Module via Git Tag
 
 on:
   push:
     tags:
       - 'v*.*.*-*'  # e.g., v1.0.0-dev, v1.2.3-stage, v3.0.1-prod
-
 jobs:
   parse-env:
     runs-on: ubuntu-latest
     outputs:
       env_name: ${{ steps.setenv.outputs.env }}
+      tag_name: ${{ github.ref_name }}
     steps:
       - name: Parse environment from tag
         id: setenv
         run: |
-          ENV=$(echo '${{ github.ref_name }}' | grep -oE '(dev|test|stage|prod)$' || true)
+          TAG="${{ github.ref_name }}"
+          ENV=$(echo "$TAG" | grep -oE '(dev|test|stage|prod)$')
           if [ -z "$ENV" ]; then
             echo "Tag must end in -dev, -test, -stage, or -prod"
             exit 1
           fi
           echo "env=$ENV" >> $GITHUB_OUTPUT
+          echo "tag_name=$TAG" >> $GITHUB_OUTPUT
 
   deploy:
     needs: parse-env
@@ -27,15 +29,71 @@ jobs:
     environment: ${{ needs.parse-env.outputs.env_name }}
 
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Create deployment artifact
+      - name: Package module artifact
         run: |
-          zip -r artifact.zip . -x ".git/*" "artifact.zip"
+          MODULE_NAME="UnitedSearch"
+          TAG="${{ needs.parse-env.outputs.tag_name }}"
+          ZIP_NAME="${MODULE_NAME}_${TAG}.zip"
 
-      - name: Run deploy.sh (on VPC runner)
+          zip -r "$ZIP_NAME" . -x ".git/*"
+
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Upload artifact to S3
         run: |
-          unzip -o artifact.zip -d ~/deployed
-          chmod +x ~/deployed/deploy.sh
-          ~/deployed/deploy.sh ${{ needs.parse-env.outputs.env_name }} ${{ github.ref_name }}
+          aws s3 cp "$ZIP_NAME" "s3://${{ secrets.S3_BUCKET_NAME }}/${{ needs.parse-env.outputs.env_name }}/artifacts/modules/$ZIP_NAME"
+
+      - name: Trigger and Monitor Remote Deployment via SSM
+        id: ssm
+        run: |
+          ENV="${{ needs.parse-env.outputs.env_name }}"
+          TAG="${{ needs.parse-env.outputs.tag_name }}"
+          INSTANCE_ID="${{ secrets.INSTANCE_ID }}"
+          S3_BUCKET="${{ secrets.S3_BUCKET_NAME }}"
+          ZIP_NAME="UnitedSearch_${TAG}.zip"
+
+          CMD_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --instance-ids "$INSTANCE_ID" \
+            --comment "Deploy Module: $TAG" \
+            --parameters "commands=[\"aws s3 cp s3://$S3_BUCKET/$ENV/artifacts/modules/$ZIP_NAME /tmp/module-artifact.zip\",\"unzip -o /tmp/module-artifact.zip -d /tmp/deployed-module\",\"chmod +x /tmp/deployed-module/.github/workflows/deploy.sh\",\"/tmp/deployed-module/.github/workflows/deploy.sh $ENV $TAG\"]" \
+            --region us-east-1 \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $CMD_ID"
+          echo "Waiting for execution to complete..."
+          sleep 15
+
+          STATUS="InProgress"
+          TIMEOUT=60
+          ELAPSED=0
+
+          while [[ "$STATUS" == "InProgress" && "$ELAPSED" -lt "$TIMEOUT" ]]; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region us-east-1 \
+              --query "Status" \
+              --output text)
+            echo "Current status: $STATUS"
+            sleep 5
+            ELAPSED=$((ELAPSED + 5))
+          done
+
+          if [[ "$STATUS" != "Success" ]]; then
+            echo "::error ::Deployment failed with status: $STATUS"
+          fi
+
+          echo "==== SSM OUTPUT BEGIN ===="
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --region us-east-1 \
+            --query "StandardOutputContent" \
+            --output text || echo "[ERROR] Failed to fetch output"
+          echo "==== SSM OUTPUT END ===="
