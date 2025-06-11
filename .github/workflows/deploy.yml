@@ -66,6 +66,7 @@ jobs:
             --output text)
 
           echo "SSM Command ID: $CMD_ID"
+          echo "CMD_ID=$CMD_ID" >> $GITHUB_ENV
           echo "Waiting for execution to complete..."
           sleep 15
 
