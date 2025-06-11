@@ -85,9 +85,10 @@ jobs:
             sleep 5
             ELAPSED=$((ELAPSED + 5))
           done
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
 
           if [[ "$STATUS" != "Success" ]]; then
-            echo "::error ::Deployment failed with status: $STATUS"
+            echo "::warning ::SSM status was: $STATUS — deployment script may have still succeeded or been rolled back."
           fi
 
           echo "==== SSM OUTPUT BEGIN ===="
@@ -98,6 +99,7 @@ jobs:
             --query "StandardOutputContent" \
             --output text || echo "[ERROR] Failed to fetch output"
           echo "==== SSM OUTPUT END ===="
+
       - name: Deployment Summary Output
         if: always()
         run: |
