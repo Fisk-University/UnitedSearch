@@ -46,6 +46,7 @@ if [ "$FAIL" == "1" ]; then
   aws s3 cp "$LOG_FILE" "s3://${S3_BUCKET}/${ENV}/logs/modules/${MODULE_NAME}_${TAG}_FAILED.log"
   aws s3 cp --recursive "$BACKUP_DIR/" "s3://${S3_BUCKET}/${ENV}/backups/modules/${MODULE_NAME}_${TAG}/"
   echo "[INFO] Check logs in S3: s3://${S3_BUCKET}/${ENV}/logs/modules/${MODULE_NAME}_${TAG}_FAILED.log" | tee -a "$LOG_FILE"
+  echo "ROLLBACK_INITIATED"
   exit 1
 fi
 
@@ -54,3 +55,4 @@ rm -rf /tmp/module-artifact.zip /tmp/deployed-module
 aws s3 cp "$LOG_FILE" "s3://${S3_BUCKET}/${ENV}/logs/modules/${MODULE_NAME}_deploy_${TAG}.log"
 aws s3 cp --recursive "$BACKUP_DIR/" "s3://${S3_BUCKET}/${ENV}/backups/modules/${MODULE_NAME}_${TAG}/"
 echo "[COMPLETE] Module deployment successful: $MODULE_NAME - $TAG" | tee -a "$LOG_FILE"
+echo "DEPLOYMENT_SUCCESS"
