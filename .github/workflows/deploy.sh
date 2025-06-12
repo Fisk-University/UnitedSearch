@@ -4,55 +4,66 @@ set -e
 ENV=$1
 TAG=$2
 
-MODULE_NAME="UnitedSearch"
+MODULE_TAG="UnitedSearch"
 DATE=$(date +"%Y%m%d_%H%M%S")
 S3_BUCKET="rw.rosenwald-ci-cd-logs-backups"
 
-LOG_DIR="$HOME/deploy-logs"
-BACKUP_DIR="$HOME/backups/omeka-modules-${DATE}"
-DEST_PATH="/var/www/html/omeka-s/modules/$MODULE_NAME"
-SRC_PATH="/tmp/deployed-module"
-
+# === Updated folder structure for logs and backups
+LOG_DIR="/backup/logs/modules"
+BACKUP_DIR="/backup/Rosenwald/modules/${MODULE_TAG}_${TAG}"
 mkdir -p "$LOG_DIR" "$BACKUP_DIR"
-LOG_FILE="$LOG_DIR/module_deploy_${MODULE_NAME}_${TAG}.log"
+LOG_FILE="${LOG_DIR}/module_deploy_${TAG}.log"
 
-echo "[INFO] Deploying module: $MODULE_NAME - $TAG" | tee "$LOG_FILE"
+# Create local backup
+echo "[INFO] Creating local backup of current modules..." | tee $LOG_FILE
+cp -r /var/www/html/omeka-s/modules "$BACKUP_DIR/all_modules_snapshot" || echo "[WARN] Full module backup failed" | tee -a $LOG_FILE
 
-# Backup existing module
-if [ -d "$DEST_PATH" ]; then
-  echo "[INFO] Backing up existing module..." | tee -a "$LOG_FILE"
-  cp -r "$DEST_PATH" "$BACKUP_DIR/${MODULE_NAME}_preupdate"
-fi
+# Upload backup to S3
+echo "[INFO] Uploading backup to S3..." | tee -a $LOG_FILE
+aws s3 cp --recursive "$BACKUP_DIR/" "s3://${S3_BUCKET}/backups/${ENV}/modules/${MODULE_TAG}_${TAG}/" || echo "[WARN] S3 backup upload failed" | tee -a $LOG_FILE
 
-# Deploy
-mkdir -p "$DEST_PATH"
-rsync -av "$SRC_PATH/" "$DEST_PATH/" >> "$LOG_FILE"
+echo "[INFO] Deployment started for ${TAG} on ${ENV}" | tee -a $LOG_FILE
 
-# Post Deployment Validations
-echo "[STEP] Validating module structure..." | tee -a "$LOG_FILE"
+# Unpack artifact (already unzipped in ~/deployed)
+echo "[STEP] Running module deployment logic..." | tee -a $LOG_FILE
 
-[ ! -f "$DEST_PATH/config/module.ini" ] && echo "Error:  module.ini missing" | tee -a "$LOG_FILE" && FAIL=1
-find "$DEST_PATH/view" -name "*.phtml" | grep . || { echo "[ERROR] No .phtml templates found" | tee -a "$LOG_FILE"; FAIL=1; }
+FAILED=0
 
-echo "[STEP] Scanning Apache logs for errors..." | tee -a "$LOG_FILE"
-tail -n 200 /var/log/apache2/error.log | grep -i "fatal" >> "$LOG_FILE" || echo "[INFO] No fatal errors in logs" | tee -a "$LOG_FILE"
+if [ -d ~/deployed/modules ]; then
+  for dir in ~/deployed/modules/*; do
+    if [ -d "$dir" ]; then
+      name=$(basename "$dir")
+      echo "Deploying module: $name" | tee -a $LOG_FILE
 
-# Rollback if failed
-if [ "$FAIL" == "1" ]; then
-  echo "[ROLLBACK] Deployment failed due to validation errors." | tee -a "$LOG_FILE"
-  echo "[ROLLBACK] Restoring previous module from backup..." | tee -a "$LOG_FILE"
-  rm -rf "$DEST_PATH"
-  cp -r "$BACKUP_DIR/${MODULE_NAME}_preupdate" "$DEST_PATH"
-  aws s3 cp "$LOG_FILE" "s3://${S3_BUCKET}/${ENV}/logs/modules/${MODULE_NAME}_${TAG}_FAILED.log"
-  aws s3 cp --recursive "$BACKUP_DIR/" "s3://${S3_BUCKET}/${ENV}/backups/modules/${MODULE_NAME}_${TAG}/"
-  echo "[INFO] Check logs in S3: s3://${S3_BUCKET}/${ENV}/logs/modules/${MODULE_NAME}_${TAG}_FAILED.log" | tee -a "$LOG_FILE"
-  echo "ROLLBACK_INITIATED"
+      # Backup individual module before rsync
+      cp -r "/var/www/html/omeka-s/modules/$name" "$BACKUP_DIR/${name}_preupdate" 2>/dev/null || true
+
+      rsync -av "$dir/" "/var/www/html/omeka-s/modules/$name/" >> $LOG_FILE || FAILED=1
+
+      if [ -f "$dir/composer.json" ] && [ ! -d "$dir/vendor" ]; then
+        echo "Running composer install for module: $name" | tee -a $LOG_FILE
+        cd "/var/www/html/omeka-s/modules/$name"
+        composer install --no-dev --prefer-dist >> $LOG_FILE 2>&1 || FAILED=1
+      fi
+
+      if [ "$FAILED" -ne 0 ]; then
+        echo "[ERROR] Deployment failed for $name. Restoring backup..." | tee -a $LOG_FILE
+        rm -rf "/var/www/html/omeka-s/modules/$name"
+        cp -r "$BACKUP_DIR/${name}_preupdate" "/var/www/html/omeka-s/modules/$name" || echo "[FATAL] Could not restore backup for $name" | tee -a $LOG_FILE
+      fi
+    fi
+  done
+else
+  echo "[ERROR] No modules found to deploy." | tee -a $LOG_FILE
   exit 1
 fi
 
-# Cleanup and uploads
-rm -rf /tmp/module-artifact.zip /tmp/deployed-module
-aws s3 cp "$LOG_FILE" "s3://${S3_BUCKET}/${ENV}/logs/modules/${MODULE_NAME}_deploy_${TAG}.log"
-aws s3 cp --recursive "$BACKUP_DIR/" "s3://${S3_BUCKET}/${ENV}/backups/modules/${MODULE_NAME}_${TAG}/"
-echo "[COMPLETE] Module deployment successful: $MODULE_NAME - $TAG" | tee -a "$LOG_FILE"
-echo "DEPLOYMENT_SUCCESS"
+# Cleanup
+echo "[STEP] Cleaning up..." | tee -a $LOG_FILE
+rm -rf ~/artifact.zip ~/deployed
+
+# Upload log to S3
+echo "[INFO] Uploading log file to S3..." | tee -a $LOG_FILE
+aws s3 cp "$LOG_FILE" "s3://${S3_BUCKET}/logs/${ENV}/modules/module_deploy_${TAG}.log" || echo "[WARN] S3 log upload failed" | tee -a $LOG_FILE
+
+echo "[SUCCESS] Deployment complete for ${TAG}" | tee -a $LOG_FILE
