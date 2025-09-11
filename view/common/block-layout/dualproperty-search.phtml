@@ -1,115 +1,33 @@
 <?php
-$translate = $this->plugin('translate');
-$escape = $this->plugin('escapeHtml');
+$translate    = $this->plugin('translate');
+$escape       = $this->plugin('escapeHtml');
 $searchAction = $this->url('site/resource', ['controller' => 'item', 'action' => 'browse'], true);
 
-// Get the properties from the block config
+// From block config these are *terms* (strings)
 $propertyOne = $this->propertyOne ?? '';
 $propertyTwo = $this->propertyTwo ?? '';
-$joinType = $this->joinType ?? 'and';
+$joinType    = $this->joinType ?? 'and';
 
-// Get the property labels
+// Labels
 $propertyOneData = !empty($propertyOne) ? $this->api()->searchOne('properties', ['term' => $propertyOne])->getContent() : null;
 $propertyTwoData = !empty($propertyTwo) ? $this->api()->searchOne('properties', ['term' => $propertyTwo])->getContent() : null;
-
 $propertyOneLabel = $propertyOneData ? $propertyOneData->label() : $propertyOne;
 $propertyTwoLabel = $propertyTwoData ? $propertyTwoData->label() : $propertyTwo;
 
-// Get values for first property
-$propertyOneValues = [];
-if (!empty($propertyOne)) {
-    $propertyOneItems = $this->api()->search('items', [
-        'property' => [
-            [
-                'property' => $propertyOne,
-                'type' => 'ex'
-            ]
-        ],
-        'limit' => 100,
-        'sort_by' => 'title',
-        'sort_order' => 'asc'
-    ])->getContent();
-    
-    foreach ($propertyOneItems as $item) {
-        $values = $item->value($propertyOne, ['all' => true]);
-        foreach ($values as $value) {
-            $textValue = trim($value->__toString());
-            if (!empty($textValue) && !in_array($textValue, $propertyOneValues)) {
-                $propertyOneValues[] = $textValue;
-            }
-        }
-    }
-    sort($propertyOneValues);
-}
+// Site scoping if available
+$siteId = isset($this->site) && $this->site ? (int)$this->site->id() : null;
 
-// Pre-load relationships between property values
-$relationshipMap = [];
-if (!empty($propertyOne) && !empty($propertyTwo) && $joinType === 'and') {
-    foreach ($propertyOneValues as $value) {
-        $relationshipMap[$value] = [];
-    }
-    
-    // For each state, find related counties
-    foreach ($propertyOneValues as $state) {
-        // Get items with this state value
-        $items = $this->api()->search('items', [
-            'property' => [
-                [
-                    'property' => $propertyOne,
-                    'type' => 'eq',
-                    'text' => $state
-                ]
-            ],
-            'limit' => 200
-        ])->getContent();
-        
-        // Extract counties from these items
-        foreach ($items as $item) {
-            $counties = $item->value($propertyTwo, ['all' => true]);
-            foreach ($counties as $county) {
-                $countyText = trim($county->__toString());
-                if (!empty($countyText) && !in_array($countyText, $relationshipMap[$state])) {
-                    $relationshipMap[$state][] = $countyText;
-                }
-            }
-        }
-        
-        // Sort counties alphabetically
-        sort($relationshipMap[$state]);
-    }
-}
+// get values + map via DBAL helper (fast, cached)
+$loc = $this->locationMap($siteId, $propertyOne, $propertyTwo, 3600);
+$propertyOneValues = $loc['valuesOne']; 
+$relationshipMap   = ($joinType === 'and') ? $loc['map'] : [];
+$propertyTwoValues = ($joinType === 'or')  ? $loc['valuesTwoAll'] : [];
 
-// Get all possible values for property two (for OR case)
-$propertyTwoValues = [];
-if (!empty($propertyTwo) && $joinType === 'or') {
-    $propertyTwoItems = $this->api()->search('items', [
-        'property' => [
-            [
-                'property' => $propertyTwo,
-                'type' => 'ex'
-            ]
-        ],
-        'limit' => 100,
-        'sort_by' => 'title',
-        'sort_order' => 'asc'
-    ])->getContent();
-    
-    foreach ($propertyTwoItems as $item) {
-        $values = $item->value($propertyTwo, ['all' => true]);
-        foreach ($values as $value) {
-            $textValue = trim($value->__toString());
-            if (!empty($textValue) && !in_array($textValue, $propertyTwoValues)) {
-                $propertyTwoValues[] = $textValue;
-            }
-        }
-    }
-    sort($propertyTwoValues);
-}
-
-// Convert the relationship map to JSON for JavaScript
-$relationshipMapJson = json_encode($relationshipMap);
-$propertyTwoValuesJson = json_encode($propertyTwoValues);
+// JSON for JS
+$relationshipMapJson   = json_encode($relationshipMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$propertyTwoValuesJson = json_encode($propertyTwoValues, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 ?>
+
 
 <div class="dual-property-search">
     <h4><?php echo $translate('Search by property values'); ?></h4>
