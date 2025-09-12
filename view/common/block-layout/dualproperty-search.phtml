@@ -19,8 +19,8 @@ $siteId = isset($this->site) && $this->site ? (int)$this->site->id() : null;
 
 // get values + map via DBAL helper (fast, cached)
 $loc = $this->locationMap($siteId, $propertyOne, $propertyTwo, 3600);
-$propertyOneValues = $loc['valuesOne']; 
-$relationshipMap   = ($joinType === 'and') ? $loc['map'] : [];
+$propertyOneValues = $loc['valuesOne'];
+$relationshipMap   = $loc['map']; // always use the map (works for AND and OR)
 $propertyTwoValues = ($joinType === 'or')  ? $loc['valuesTwoAll'] : [];
 
 // JSON for JS
@@ -93,6 +93,11 @@ jQuery(document).ready(function($) {
             e.preventDefault();
             alert('<?php echo $translate('Please select a value for both properties.'); ?>');
         }
+
+        // In OR, if county empty, don't submit the second condition
+        if (joinType === 'or' && !propertyTwoSelect.value) {
+            $(this).find('[name^="property[1]"]').prop('disabled', true);
+        }
     });
     
     // Enable/disable second dropdown based on first selection
@@ -118,8 +123,9 @@ jQuery(document).ready(function($) {
                     $(propertyTwoSelect).append(`<option value="" disabled><?php echo $translate('No related values found'); ?></option>`);
                 }
             } else {
-                // For OR, use all possible values
-                allPropertyTwoValues.forEach(function(value) {
+                // OR: filter by selected state if available; otherwise show all
+                const relatedValues = relationshipMap[propertyOneSelect.value] || allPropertyTwoValues;
+                relatedValues.forEach(function(value) {
                     $(propertyTwoSelect).append(`<option value="${value}">${value}</option>`);
                 });
             }
