@@ -89,13 +89,11 @@ jQuery(document).ready(function($) {
         if (!propertyOneSelect.value) {
             e.preventDefault();
             alert('<?php echo $translate('Please select a value for the first property.'); ?>');
-        } else if (joinType === 'and' && !propertyTwoSelect.value) {
-            e.preventDefault();
-            alert('<?php echo $translate('Please select a value for both properties.'); ?>');
+            return;
         }
-
-        // In OR, if county empty, don't submit the second condition
-        if (joinType === 'or' && !propertyTwoSelect.value) {
+        
+        // Now disable second property fields for both AND and OR when county is empty
+        if (!propertyTwoSelect.value) {
             $(this).find('[name^="property[1]"]').prop('disabled', true);
         }
     });
