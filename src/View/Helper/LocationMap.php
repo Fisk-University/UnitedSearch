@@ -30,6 +30,8 @@ class LocationMap extends AbstractHelper
 
         // Serve fresh cache if available.
         if (is_file($cache) && (time() - filemtime($cache) < $ttlSeconds)) {
+            $age = time() - filemtime($cache);
+            $this->log('CACHE_HIT', $termOne, $termTwo, "age={$age}s ttl={$ttlSeconds}s");
             return $this->normalize(json_decode((string)@file_get_contents($cache), true), $ttlSeconds);
         }
 
@@ -37,7 +39,11 @@ class LocationMap extends AbstractHelper
         $fh = @fopen($lock, 'c');
         if ($fh && flock($fh, LOCK_EX | LOCK_NB)) {
             try {
+                $start = microtime(true);
                 $data = $this->build($siteId, $termOne, $termTwo, $ttlSeconds);
+                $elapsed = round((microtime(true) - $start) * 1000, 1);
+                $pairs = count($data['valuesOne'] ?? []);
+                $this->log('CACHE_REBUILD', $termOne, $termTwo, "built in {$elapsed}ms, {$pairs} values");
                 $tmp  = $cache . '.tmp' . getmypid();
                 file_put_contents($tmp, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
                 @chmod($tmp, 0664);
@@ -50,10 +56,13 @@ class LocationMap extends AbstractHelper
 
         // Fallback to stale cache if it exists.
         if (is_file($cache)) {
+            $age = time() - filemtime($cache);
+            $this->log('CACHE_STALE', $termOne, $termTwo, "serving stale cache, age={$age}s (rebuild locked)");
             return $this->normalize(json_decode((string)@file_get_contents($cache), true), $ttlSeconds);
         }
 
         // First-ever fallback: empty but valid shape.
+        $this->log('CACHE_MISS', $termOne, $termTwo, 'no cache file exists, returning empty');
         return [
             'valuesOne'     => [],
             'valuesTwoAll'  => [],
@@ -150,5 +159,17 @@ class LocationMap extends AbstractHelper
         $d['generatedAt']  = $d['generatedAt']  ?? gmdate('c');
         $d['ttl']          = $d['ttl']          ?? $ttl;
         return $d;
+    }
+
+    /**
+     * Log cache performance events.
+     * Writes to PHP error_log (typically /var/log/php8.1-fpm.log).
+     */
+    private function log(string $event, string $termOne, string $termTwo, string $detail): void
+    {
+        error_log(sprintf(
+            '[UnitedSearch] %s | props=%s,%s | %s',
+            $event, $termOne, $termTwo, $detail
+        ));
     }
 }
