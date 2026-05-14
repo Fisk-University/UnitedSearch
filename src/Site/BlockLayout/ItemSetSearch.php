@@ -150,7 +150,7 @@ class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayo
             'name' => 'o:block[__blockIndex__][o:data][fieldPlaceholder]',
             'type' => Element\Text::class,
             'options' => [
-                'label' => 'Placeholder', // @translate
+                'label' => 'Placeholder:', // @translate
             ],
             'attributes' => [
                 'value' => $data['fieldPlaceholder'],
