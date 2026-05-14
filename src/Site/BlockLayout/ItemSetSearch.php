@@ -15,19 +15,8 @@ use Laminas\Form\FormElementManager;
 
 class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayoutInterface
 {
-    /**
-     * Synthetic option for searching all items.
-     */
     const ITEM_SET_ALL_ITEMS = '__all_items__';
-
-    /**
-     * Synthetic option for searching item sets instead of items.
-     */
     const ITEM_SET_ALL_ITEM_SETS = '__all_item_sets__';
-
-    /**
-     * Synthetic option for searching across all item properties.
-     */
     const PROPERTY_ALL_PROPERTIES = '__all_properties__';
 
     /**
@@ -73,39 +62,28 @@ class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayo
         try {
             $itemSetSelect = $this->formElements->get(OmekaElement\ItemSetSelect::class);
             $itemSetSelect->setName('o:block[__blockIndex__][o:data][selectedItemSet]');
+
             $itemSetSelect->setOptions([
                 'label' => 'Item Set', // @translate
                 'empty_option' => 'Select item set…', // @translate
                 'term_as_value' => false,
             ]);
+
+            $itemSetSelect->setValueOptions(
+                [
+                    self::ITEM_SET_ALL_ITEMS => 'All items',
+                    self::ITEM_SET_ALL_ITEM_SETS => 'All item sets',
+                ] + $itemSetSelect->getValueOptions()
+            );
+
             $itemSetSelect->setAttributes([
-                'value' => $data['selectedItemSet'] ?? null,
+                'value' => $data['selectedItemSet'] ?? '',
                 'required' => true,
                 'data-column-data-key' => 'item_set_id',
                 'class' => 'chosen-select',
             ]);
 
             $layoutForm->add($itemSetSelect);
-
-            /*
-             * Add synthetic admin options after Omeka builds the normal item set list.
-             *
-             * All items:
-             * - Searches all items.
-             * - Does not submit item_set_id.
-             *
-             * All item sets:
-             * - Routes to the item-set browse page instead of the item browse page.
-             */
-            $itemSetElement = $layoutForm->get('o:block[__blockIndex__][o:data][selectedItemSet]');
-            $itemSetValueOptions = $itemSetElement->getValueOptions();
-
-            $itemSetElement->setValueOptions(
-                [
-                    self::ITEM_SET_ALL_ITEMS => 'All items', // @translate
-                    self::ITEM_SET_ALL_ITEM_SETS => 'All item sets', // @translate
-                ] + $itemSetValueOptions
-            );
         } catch (\Exception $e) {
             $errors[] = $e->getMessage();
         }
@@ -113,35 +91,27 @@ class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayo
         try {
             $propertySelect = $this->formElements->get(OmekaElement\PropertySelect::class);
             $propertySelect->setName('o:block[__blockIndex__][o:data][searchField]');
+
             $propertySelect->setOptions([
                 'label' => 'Property', // @translate
                 'empty_option' => 'Select property…', // @translate
                 'term_as_value' => false,
             ]);
+
+            $propertySelect->setValueOptions(
+                [
+                    self::PROPERTY_ALL_PROPERTIES => 'All properties',
+                ] + $propertySelect->getValueOptions()
+            );
+
             $propertySelect->setAttributes([
-                'value' => $data['searchField'] ?? null,
+                'value' => $data['searchField'] ?? '',
                 'required' => true,
                 'data-column-data-key' => 'searchField',
                 'class' => 'chosen-select',
             ]);
 
             $layoutForm->add($propertySelect);
-
-            /*
-             * Add synthetic admin option after Omeka builds the normal property list.
-             *
-             * All properties:
-             * - Uses Omeka's fulltext_search parameter.
-             * - This searches across indexed item metadata instead of one selected property.
-             */
-            $propertyElement = $layoutForm->get('o:block[__blockIndex__][o:data][searchField]');
-            $propertyValueOptions = $propertyElement->getValueOptions();
-
-            $propertyElement->setValueOptions(
-                [
-                    self::PROPERTY_ALL_PROPERTIES => 'All properties', // @translate
-                ] + $propertyValueOptions
-            );
         } catch (\Exception $e) {
             $errors[] = $e->getMessage();
         }
