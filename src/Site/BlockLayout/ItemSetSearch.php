@@ -6,7 +6,6 @@ use Omeka\Site\BlockLayout\TemplateableBlockLayoutInterface;
 use Omeka\Api\Representation\SiteRepresentation;
 use Omeka\Api\Representation\SitePageRepresentation;
 use Omeka\Api\Representation\SitePageBlockRepresentation;
-use Omeka\Form\Element as OmekaElement;
 use Laminas\Form\Element;
 use Laminas\Form\Form;
 use Laminas\View\Renderer\PhpRenderer;
@@ -59,62 +58,91 @@ class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayo
         $layoutForm = new Form();
         $errors = [];
 
-        try {
-            $itemSetSelect = $this->formElements->get(OmekaElement\ItemSetSelect::class);
-            $itemSetSelect->setName('o:block[__blockIndex__][o:data][selectedItemSet]');
+        /*
+         * Build item set options manually instead of using OmekaElement\ItemSetSelect.
+         * Omeka's built-in select repopulates its own choices, which prevents synthetic
+         * choices like "All items" from reliably displaying in the admin dropdown.
+         */
+        $itemSetOptions = [
+            '' => 'Select item set…',
+            self::ITEM_SET_ALL_ITEMS => 'All items',
+            self::ITEM_SET_ALL_ITEM_SETS => 'All item sets',
+        ];
 
-            $itemSetSelect->setOptions([
-                'label' => 'Item Set', // @translate
-                'empty_option' => 'Select item set…', // @translate
-                'term_as_value' => false,
+        try {
+            $itemSetsResponse = $this->api->search('item_sets', [
+                'sort_by' => 'title',
+                'sort_order' => 'asc',
+                'limit' => 0,
             ]);
 
-            $itemSetSelect->setValueOptions(
-                [
-                    self::ITEM_SET_ALL_ITEMS => 'All items',
-                    self::ITEM_SET_ALL_ITEM_SETS => 'All item sets',
-                ] + $itemSetSelect->getValueOptions()
-            );
+            $itemSets = $itemSetsResponse->getContent();
 
-            $itemSetSelect->setAttributes([
+            foreach ($itemSets as $itemSet) {
+                $itemSetOptions[(string) $itemSet->id()] = $itemSet->displayTitle();
+            }
+        } catch (\Exception $e) {
+            $errors[] = 'Unable to load item sets: ' . $e->getMessage();
+        }
+
+        $layoutForm->add([
+            'name' => 'o:block[__blockIndex__][o:data][selectedItemSet]',
+            'type' => Element\Select::class,
+            'options' => [
+                'label' => 'Item Set', // @translate
+                'value_options' => $itemSetOptions,
+            ],
+            'attributes' => [
                 'value' => $data['selectedItemSet'] ?? '',
                 'required' => true,
                 'data-column-data-key' => 'item_set_id',
                 'class' => 'chosen-select',
-            ]);
+            ],
+        ]);
 
-            $layoutForm->add($itemSetSelect);
-        } catch (\Exception $e) {
-            $errors[] = $e->getMessage();
-        }
+        /*
+         * Build property options manually instead of using OmekaElement\PropertySelect.
+         * The first synthetic option lets the frontend template use fulltext_search.
+         */
+        $propertyOptions = [
+            '' => 'Select property…',
+            self::PROPERTY_ALL_PROPERTIES => 'All properties',
+        ];
 
         try {
-            $propertySelect = $this->formElements->get(OmekaElement\PropertySelect::class);
-            $propertySelect->setName('o:block[__blockIndex__][o:data][searchField]');
-
-            $propertySelect->setOptions([
-                'label' => 'Property', // @translate
-                'empty_option' => 'Select property…', // @translate
-                'term_as_value' => false,
+            $propertiesResponse = $this->api->search('properties', [
+                'sort_by' => 'label',
+                'sort_order' => 'asc',
+                'limit' => 0,
             ]);
 
-            $propertySelect->setValueOptions(
-                [
-                    self::PROPERTY_ALL_PROPERTIES => 'All properties',
-                ] + $propertySelect->getValueOptions()
-            );
+            $properties = $propertiesResponse->getContent();
 
-            $propertySelect->setAttributes([
+            foreach ($properties as $property) {
+                $propertyOptions[(string) $property->id()] = sprintf(
+                    '%s: %s',
+                    $property->vocabulary()->label(),
+                    $property->label()
+                );
+            }
+        } catch (\Exception $e) {
+            $errors[] = 'Unable to load properties: ' . $e->getMessage();
+        }
+
+        $layoutForm->add([
+            'name' => 'o:block[__blockIndex__][o:data][searchField]',
+            'type' => Element\Select::class,
+            'options' => [
+                'label' => 'Property', // @translate
+                'value_options' => $propertyOptions,
+            ],
+            'attributes' => [
                 'value' => $data['searchField'] ?? '',
                 'required' => true,
                 'data-column-data-key' => 'searchField',
                 'class' => 'chosen-select',
-            ]);
-
-            $layoutForm->add($propertySelect);
-        } catch (\Exception $e) {
-            $errors[] = $e->getMessage();
-        }
+            ],
+        ]);
 
         $layoutForm->add([
             'name' => 'o:block[__blockIndex__][o:data][fieldPlaceholder]',
