@@ -2,46 +2,144 @@
 $translate = $this->plugin('translate');
 $escape = $this->plugin('escapeHtml');
 
-// Get search parameters
-$properties = isset($_GET['property']) ? $_GET['property'] : [];
-$properties = array_filter($properties, function ($value) {
-    return isset($value['text']) ? '' !== trim($value['text']) : true;
-});
-if (!$properties) {
-    $properties[] = [];
+$allItemsOption = $this->allItemsOption ?? '__all_items__';
+$allItemSetsOption = $this->allItemSetsOption ?? '__all_item_sets__';
+$allPropertiesOption = $this->allPropertiesOption ?? '__all_properties__';
+
+$configuredItemSet = isset($this->selectedItemSet) ? (string) $this->selectedItemSet : '';
+$configuredProperty = isset($this->searchField) ? (string) $this->searchField : '';
+$configuredSearchType = isset($this->searchTypeSelect) && '' !== trim((string) $this->searchTypeSelect)
+    ? (string) $this->searchTypeSelect
+    : 'in';
+
+$placeholder = isset($this->fieldPlaceholder) && '' !== trim((string) $this->fieldPlaceholder)
+    ? (string) $this->fieldPlaceholder
+    : 'Search the collection';
+
+$isAllItems = ($configuredItemSet === $allItemsOption);
+$isAllItemSets = ($configuredItemSet === $allItemSetsOption);
+$isAllProperties = ($configuredProperty === $allPropertiesOption);
+
+/*
+ * Route behavior:
+ *
+ * All item sets:
+ * - Browse/search item sets.
+ *
+ * All items or a specific item set:
+ * - Browse/search items.
+ */
+if ($isAllItemSets) {
+    $searchAction = $this->url(
+        'site/resource',
+        ['controller' => 'item-set', 'action' => 'browse'],
+        true
+    );
+} else {
+    $searchAction = $this->url(
+        'site/resource',
+        ['controller' => 'item', 'action' => 'browse'],
+        true
+    );
 }
 
-// Prepare search values
-$searchAction = $this->url('site/resource', ['controller' => 'item', 'action' => 'browse'], true);
-$searchValue = isset($properties[0]['text']) ? $properties[0]['text'] : '';
-$itemSetID = $this->params()->fromQuery('item_set_id', $this->selectedItemSet);
+/*
+ * Preserve submitted search value when the user lands on a results page.
+ */
+if ($isAllProperties) {
+    $searchValue = $this->params()->fromQuery('fulltext_search', '');
+} else {
+    $properties = $this->params()->fromQuery('property', []);
+    $searchValue = '';
 
-// Get property field to search
-$propertySearchField = isset($this->searchField) ? $this->searchField : 'dcterms:title';
+    if (is_array($properties) && isset($properties[0]) && is_array($properties[0])) {
+        $searchValue = $properties[0]['text'] ?? '';
+    }
+}
 
-// Use the configured item set if none is specified in the request
-$selectedItemSet = !empty($itemSetID) ? $itemSetID : $this->selectedItemSet;
+/*
+ * For a specific item set, submit item_set_id.
+ * For All items, omit item_set_id.
+ * For All item sets, omit item_set_id because the target resource is item sets.
+ */
+$selectedItemSet = '';
+if (!$isAllItems && !$isAllItemSets && '' !== trim($configuredItemSet)) {
+    $selectedItemSet = $configuredItemSet;
+}
 ?>
 
 <div class="search-form" role="search">
-    <form action="<?php echo $escape($searchAction); ?>" id="search-form" aria-label="<?php echo $translate('Search items'); // @translate ?>">
-        <input type="hidden" name="item_set_id" id="itemsetid" value="<?php echo $escape($selectedItemSet); ?>" />
-        <input type="hidden" name="property[0][joiner]" value="<?php echo $escape($this->conditionalSelect); ?>" />
-        <input type="hidden" name="property[0][property]" value="<?php echo $escape($propertySearchField); ?>" />
-        <input type="hidden" name="property[0][type]" value="<?php echo $escape($this->searchTypeSelect); ?>" />
-        
-        <div class="input-group">
-            <label for="search-input" class="visually-hidden"><?php echo $translate($this->fieldPlaceholder); ?></label>
-            <input 
-                type="text" 
-                name="property[0][text]" 
-                id="search-input"
-                value="<?php echo $escape($searchValue); ?>"
-                placeholder="<?php echo $translate($this->fieldPlaceholder); ?>"
-                aria-label="<?php echo $translate($this->fieldPlaceholder); ?>">
-            <button type="submit" aria-label="<?php echo $translate('Search'); // @translate ?>">
-                <?php echo $translate('Search'); // @translate ?>
-            </button>
-        </div>
+    <form
+        action="<?php echo $escape($searchAction); ?>"
+        id="search-form"
+        aria-label="<?php echo $escape($translate('Search')); ?>"
+        method="get"
+    >
+        <?php if ('' !== $selectedItemSet): ?>
+            <input
+                type="hidden"
+                name="item_set_id"
+                id="itemsetid"
+                value="<?php echo $escape($selectedItemSet); ?>"
+            >
+        <?php endif; ?>
+
+        <?php if ($isAllProperties): ?>
+            <div class="input-group">
+                <label for="search-input" class="visually-hidden">
+                    <?php echo $escape($translate($placeholder)); ?>
+                </label>
+
+                <input
+                    type="text"
+                    name="fulltext_search"
+                    id="search-input"
+                    value="<?php echo $escape($searchValue); ?>"
+                    placeholder="<?php echo $escape($translate($placeholder)); ?>"
+                    aria-label="<?php echo $escape($translate($placeholder)); ?>"
+                >
+
+                <button type="submit" aria-label="<?php echo $escape($translate('Search')); ?>">
+                    <?php echo $escape($translate('Search')); ?>
+                </button>
+            </div>
+        <?php else: ?>
+            <input
+                type="hidden"
+                name="property[0][joiner]"
+                value="<?php echo $escape($this->conditionalSelect ?? 'and'); ?>"
+            >
+
+            <input
+                type="hidden"
+                name="property[0][property]"
+                value="<?php echo $escape($configuredProperty); ?>"
+            >
+
+            <input
+                type="hidden"
+                name="property[0][type]"
+                value="<?php echo $escape($configuredSearchType); ?>"
+            >
+
+            <div class="input-group">
+                <label for="search-input" class="visually-hidden">
+                    <?php echo $escape($translate($placeholder)); ?>
+                </label>
+
+                <input
+                    type="text"
+                    name="property[0][text]"
+                    id="search-input"
+                    value="<?php echo $escape($searchValue); ?>"
+                    placeholder="<?php echo $escape($translate($placeholder)); ?>"
+                    aria-label="<?php echo $escape($translate($placeholder)); ?>"
+                >
+
+                <button type="submit" aria-label="<?php echo $escape($translate('Search')); ?>">
+                    <?php echo $escape($translate('Search')); ?>
+                </button>
+            </div>
+        <?php endif; ?>
     </form>
 </div>
