@@ -6,6 +6,7 @@ use Omeka\Site\BlockLayout\TemplateableBlockLayoutInterface;
 use Omeka\Api\Representation\SiteRepresentation;
 use Omeka\Api\Representation\SitePageRepresentation;
 use Omeka\Api\Representation\SitePageBlockRepresentation;
+use Omeka\Form\Element as OmekaElement;
 use Laminas\Form\Element;
 use Laminas\Form\Form;
 use Laminas\View\Renderer\PhpRenderer;
@@ -59,90 +60,65 @@ class ItemSetSearch extends AbstractBlockLayout implements TemplateableBlockLayo
         $errors = [];
 
         /*
-         * Build item set options manually instead of using OmekaElement\ItemSetSelect.
-         * Omeka's built-in select repopulates its own choices, which prevents synthetic
-         * choices like "All items" from reliably displaying in the admin dropdown.
+         * Keep Omeka's native ItemSetSelect so the original item set loading behavior
+         * remains intact. Add synthetic options using prepend_value_options so they
+         * appear before the real item sets without replacing Omeka's populated list.
          */
-        $itemSetOptions = [
-            '' => 'Select item set…',
-            self::ITEM_SET_ALL_ITEMS => 'All items',
-            self::ITEM_SET_ALL_ITEM_SETS => 'All item sets',
-        ];
-
         try {
-            $itemSetsResponse = $this->api->search('item_sets', [
-                'sort_by' => 'title',
-                'sort_order' => 'asc',
-                'limit' => 0,
+            $itemSetSelect = $this->formElements->get(OmekaElement\ItemSetSelect::class);
+            $itemSetSelect->setName('o:block[__blockIndex__][o:data][selectedItemSet]');
+
+            $itemSetSelect->setOptions([
+                'label' => 'Item Set', // @translate
+                'empty_option' => 'Select item set…', // @translate
+                'term_as_value' => false,
+                'prepend_value_options' => [
+                    self::ITEM_SET_ALL_ITEMS => 'All items', // @translate
+                    self::ITEM_SET_ALL_ITEM_SETS => 'All item sets', // @translate
+                ],
             ]);
 
-            $itemSets = $itemSetsResponse->getContent();
-
-            foreach ($itemSets as $itemSet) {
-                $itemSetOptions[(string) $itemSet->id()] = $itemSet->displayTitle();
-            }
-        } catch (\Exception $e) {
-            $errors[] = 'Unable to load item sets: ' . $e->getMessage();
-        }
-
-        $layoutForm->add([
-            'name' => 'o:block[__blockIndex__][o:data][selectedItemSet]',
-            'type' => Element\Select::class,
-            'options' => [
-                'label' => 'Item Set', // @translate
-                'value_options' => $itemSetOptions,
-            ],
-            'attributes' => [
+            $itemSetSelect->setAttributes([
                 'value' => $data['selectedItemSet'] ?? '',
                 'required' => true,
                 'data-column-data-key' => 'item_set_id',
                 'class' => 'chosen-select',
-            ],
-        ]);
-
-        /*
-         * Build property options manually instead of using OmekaElement\PropertySelect.
-         * The first synthetic option lets the frontend template use fulltext_search.
-         */
-        $propertyOptions = [
-            '' => 'Select property…',
-            self::PROPERTY_ALL_PROPERTIES => 'All properties',
-        ];
-
-        try {
-            $propertiesResponse = $this->api->search('properties', [
-                'sort_by' => 'label',
-                'sort_order' => 'asc',
-                'limit' => 0,
             ]);
 
-            $properties = $propertiesResponse->getContent();
-
-            foreach ($properties as $property) {
-                $propertyOptions[(string) $property->id()] = sprintf(
-                    '%s: %s',
-                    $property->vocabulary()->label(),
-                    $property->label()
-                );
-            }
+            $layoutForm->add($itemSetSelect);
         } catch (\Exception $e) {
-            $errors[] = 'Unable to load properties: ' . $e->getMessage();
+            $errors[] = 'Unable to load item set selector: ' . $e->getMessage();
         }
 
-        $layoutForm->add([
-            'name' => 'o:block[__blockIndex__][o:data][searchField]',
-            'type' => Element\Select::class,
-            'options' => [
+        /*
+         * Keep Omeka's native PropertySelect so the original vocabulary/property
+         * loading behavior remains intact. Add "All properties" before the real
+         * property list without replacing Omeka's populated list.
+         */
+        try {
+            $propertySelect = $this->formElements->get(OmekaElement\PropertySelect::class);
+            $propertySelect->setName('o:block[__blockIndex__][o:data][searchField]');
+
+            $propertySelect->setOptions([
                 'label' => 'Property', // @translate
-                'value_options' => $propertyOptions,
-            ],
-            'attributes' => [
+                'empty_option' => 'Select property…', // @translate
+                'term_as_value' => false,
+                'prepend_value_options' => [
+                    self::PROPERTY_ALL_PROPERTIES => 'All properties', // @translate
+                ],
+            ]);
+
+            $propertySelect->setAttributes([
                 'value' => $data['searchField'] ?? '',
                 'required' => true,
                 'data-column-data-key' => 'searchField',
                 'class' => 'chosen-select',
-            ],
-        ]);
+            ]);
+
+            $layoutForm->add($propertySelect);
+        } catch (\Exception $e) {
+            $errors[] = 'Unable to load property selector: ' . $e->getMessage();
+        }
 
         $layoutForm->add([
             'name' => 'o:block[__blockIndex__][o:data][fieldPlaceholder]',
