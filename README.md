@@ -136,9 +136,13 @@ For developers interested in extending or modifying United Search:
 
 See GitHub releases page for detailed changelogs: https://github.com/Fisk-University/UnitedSearch/releases
 
+---
+
 ## License
 
-United Search is published under the Server Side Public License (SSPL-1.0). See LICENSE file for full text.
+This module is published under the [Server Side Public License (SSPL-1.0)](https://www.mongodb.com/legal/licensing/server-side-public-license).
+
+---
 
 ## Authors
 
