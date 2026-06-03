@@ -146,7 +146,9 @@ This module is published under the [Server Side Public License (SSPL-1.0)](https
 
 ## Authors
 
-Developed by LaTaevia Berry and Sai Kiran Boppana for Fisk University and HBCUs nationwide.
+Developed by [LaTaevia Berry](https://github.com/LATAEVIA) and Sai Kiran Boppana for Fisk University and HBCUs nationwide.
+
+
 
 ## Project Context
 
